@@ -12,10 +12,13 @@ class WikipediaHandler(xml.sax.ContentHandler):
 		self.title = ""
 		self.CurrentData = ""
 		self.article_no = 0
-		self.article.content = ""
-		
-	def get_tokens(self):
 
+	def get_tokens(self, content, title):
+
+		token = {}
+		token['title'] = []
+		token['text'] = []
+		token['References'] = []
 
 	def startElement(self, tag, attributes):
 		"""
@@ -32,11 +35,11 @@ class WikipediaHandler(xml.sax.ContentHandler):
 		Get content of every header
 		"""
 		if self.CurrentData == "title":
-			self.article.title = content
+			self.article.title = content.encode('utf-8')
 
-		if self.CurrentData = "text":
+		if self.CurrentData == "text":
 			self.article.content = content
-			tokens = get_tokens(self.art)
+			tokens = self.get_tokens(self.article.content, self.article.title)
 		# if self.CurrentData == "id":
 		# 	if content != content:
 		# 		self.article.id = int(content)
