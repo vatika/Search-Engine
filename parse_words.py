@@ -11,7 +11,9 @@ from nltk.corpus import stopwords
 all_articles = []
 stemmer = PorterStemmer()
 stop = stopwords.words('english')
-	
+
+ext_headers = ['references','external links', 'further readings', 'see also']
+
 class Article:
 	def __init__(self):
 		title = ""
@@ -44,14 +46,25 @@ class WikipediaHandler(xml.sax.ContentHandler):
 	
 	def get_tokens(self, content, title):
 		self.t = title
-		self.article.token = {}
 		self.article.token['title'] = tokenize(title)
 		# self.article.token['text'] = tokenize(get_body(content))
 		self.article.token['headings'] = tokenize(self.get_headings(content))
 		# self.article.token['References'] = tokenize(get_references(content))
-		
+		print self.article.token['title'], self.article.token['headings']
+
 	def get_headings(self, text):
 		return " ".join([i for i in self.article.headings])
+
+	def extract_ref( self, content):
+	    content = re.sub( '\n', ' ', content)
+	    ref = re.findall( "<ref.*?</ref>", content)
+	    self.article.token['References'] = []
+	    for i in ref:
+        	i = re.sub("<ref.*?>", '', i)
+        	i = re.sub( "</ref>", '', i)
+	        self.article.token['References'].append(i)
+        self.article.content = re.sub("<ref.*?</ref>", ' ', content)
+
 
 	def startElement(self, tag, attributes):
 		"""
@@ -64,26 +77,40 @@ class WikipediaHandler(xml.sax.ContentHandler):
 			self.article.id = self.article_no
 			self.article_no += 1
 			self.article.headings = []
+			self.article.token = {}
 
+	def deal(self):
+		pass
 	def characters(self, content):
 		"""
 		Get content of every header
 		"""
+
+		content = str(content.encode('utf-8')).lower()
+
 		if self.CurrentData == "title":
 			self.article.title = content
-			
+		
+		elif content.startswith('==') and content.endswith('=='):
+			content = (re.sub("=+", '', content )).strip()
+			if content in ext_headers :
+				deal()
+
+			else :
+				self.article.headings.append(re.sub('[=]','', content).strip())
+
 		elif self.CurrentData == "text":		
 			self.article.content += content
 
 		#Get headings by comparing with pattern
-		content = str(content.encode('utf-8'))
-		if content.startswith('==') and content.endswith('=='):
-			self.article.headings.append(re.sub('[=]','', content).strip())
+	
 			
 	def endElement(self, tag):
 		
 		if self.CurrentData == "text":
+			self.extract_ref(self.article.content)
 			self.get_tokens(self.article.content, self.article.title)
+
 
 		if tag == "page":
 			all_articles.append(Article)
