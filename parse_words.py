@@ -4,26 +4,27 @@ import xml.sax
 from xml.sax.handler import ContentHandler
 import cgi
 
-all_article = []
+all_articles = []
 
 class WikipediaHandler(xml.sax.ContentHandler):
 	def __init__(self):
 		self.title = ""
 		self.CurrentData = ""
-	
+		
 	def startElement(self, tag, attributes):
 		self.CurrentData = tag
-    	if tag == "page":
-    		article = Article()
+		if self.CurrentData == "page":
+			self.article = Article()
 
 	def characters(self, content):
 		if self.CurrentData == "title":
-			self.title = content
- 
+			self.article.title = content
+			
 	def endElement(self, tag):
 		if self.CurrentData == "title":
-			article.title = self.title
-			print "Title: ", article.title
+			print "Title: ", self.article.title
+		if self.CurrentData == "page":
+			all_articles.append(Article)
 
 class Article:
 	def __init__(self):
