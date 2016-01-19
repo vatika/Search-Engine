@@ -10,8 +10,8 @@ from nltk.corpus import stopwords
 
 all_articles = []
 stemmer = PorterStemmer()
-
-
+stop = stopwords.words('english')
+	
 class Article:
 	def __init__(self):
 		title = ""
@@ -22,16 +22,16 @@ class Article:
 		external_links = []
 		id = 0
 
-
 def stem_tokens(tokens, stemmer):
     stemmed = []
     for item in tokens:
-        stemmed.append(stemmer.stem(item))
+    	item = item.encode("utf-8")
+    	word = stemmer.stem(item)
+    	if word not in stop:
+        	stemmed.append(stemmer.stem(item))
     return stemmed
 
-
 def tokenize(text):
-	print text
 	token = re.sub('[^a-zA-Z0-9 \n\.]', ' ', text)
 	token = token.split()
 	stems = stem_tokens(token, stemmer)
@@ -46,12 +46,12 @@ class WikipediaHandler(xml.sax.ContentHandler):
 		self.t = title
 		self.article.token = {}
 		self.article.token['title'] = tokenize(title)
-		self.article.token['text'] = tokenize(get_body(content))
-		self.article.token['headings'] = tokenize(get_headings(content))
-		self.article.token['References'] = tokenize(get_references(content))
-		print self.article.token['title']
-
-	
+		# self.article.token['text'] = tokenize(get_body(content))
+		self.article.token['headings'] = tokenize(self.get_headings(content))
+		# self.article.token['References'] = tokenize(get_references(content))
+		
+	def get_headings(self, text):
+		return " ".join([i for i in self.article.headings])
 
 	def startElement(self, tag, attributes):
 		"""
@@ -63,16 +63,22 @@ class WikipediaHandler(xml.sax.ContentHandler):
 			self.article.content = ""
 			self.article.id = self.article_no
 			self.article_no += 1
+			self.article.headings = []
 
 	def characters(self, content):
 		"""
 		Get content of every header
 		"""
 		if self.CurrentData == "title":
-			self.article.title = content.decode('utf-8')
+			self.article.title = content
 			
 		elif self.CurrentData == "text":		
 			self.article.content += content
+
+		#Get headings by comparing with pattern
+		content = str(content.encode('utf-8'))
+		if content.startswith('==') and content.endswith('=='):
+			self.article.headings.append(re.sub('[=]','', content).strip())
 			
 	def endElement(self, tag):
 		
