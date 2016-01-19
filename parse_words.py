@@ -12,7 +12,7 @@ all_articles = []
 stemmer = PorterStemmer()
 stop = stopwords.words('english')
 
-ext_headers = ['references','external links', 'further readings', 'see also']
+ext_headers = ['references','external links', 'further reading', 'see also']
 
 class Article:
 	def __init__(self):
@@ -34,28 +34,27 @@ def stem_tokens(tokens, stemmer):
     return stemmed
 
 def tokenize(text):
-	token = re.sub('[^a-zA-Z0-9 \n\.]', ' ', text)
+	token = re.sub('[^a-zA-Z0-9 \.]', ' ', text)
 	token = token.split()
 	stems = stem_tokens(token, stemmer)
 	return stems
 
 class WikipediaHandler(xml.sax.ContentHandler):
 	def __init__(self):
+		self.ext_tag = 0
 		self.CurrentData = ""
 		self.article_no = 0
 	
 	def get_tokens(self, content, title):
-		self.t = title
 		self.article.token['title'] = tokenize(title)
 		# self.article.token['text'] = tokenize(get_body(content))
 		self.article.token['headings'] = tokenize(self.get_headings(content))
 		# self.article.token['References'] = tokenize(get_references(content))
-		print self.article.token['title'], self.article.token['headings']
-
+	
 	def get_headings(self, text):
 		return " ".join([i for i in self.article.headings])
 
-	def extract_ref( self, content):
+	def filter_content( self, content):
 	    content = re.sub( '\n', ' ', content)
 	    ref = re.findall( "<ref.*?</ref>", content)
 	    self.article.token['References'] = []
@@ -63,8 +62,17 @@ class WikipediaHandler(xml.sax.ContentHandler):
         	i = re.sub("<ref.*?>", '', i)
         	i = re.sub( "</ref>", '', i)
 	        self.article.token['References'].append(i)
-        self.article.content = re.sub("<ref.*?</ref>", ' ', content)
+	    content = re.sub("<ref.*?</ref>", ' ', content)
+	    content = re.sub("i.e", '', content)
+	    content = re.sub("\.", ' ', content)
+	    content = re.sub('[^a-zA-Z0-9 ]', '', content)
+	    content = re.sub(' +', ' ', content)
+	    content = content.split()
+	    #words ki numbering yaad rakhna oreder needed :P
 
+	    #now content is list of words in the body
+	    #removed references , links, duplicates, etc
+	    self.article.content = content
 
 	def startElement(self, tag, attributes):
 		"""
@@ -78,9 +86,20 @@ class WikipediaHandler(xml.sax.ContentHandler):
 			self.article_no += 1
 			self.article.headings = []
 			self.article.token = {}
+			self.article.token['Category'] = []
 
-	def deal(self):
-		pass
+	def deal(self, content):
+		if content == "further reading" :
+			self.ext_tag = 3
+		elif content == "see also" :
+			self.ext_tag = 4
+		elif content == "references" :
+			self.ext_tag = 1
+		else :
+			self.ext_tag = 2
+	def ext_add( self, content ):
+		pass	
+
 	def characters(self, content):
 		"""
 		Get content of every header
@@ -91,27 +110,35 @@ class WikipediaHandler(xml.sax.ContentHandler):
 		if self.CurrentData == "title":
 			self.article.title = content
 		
+		elif content.startswith('[[category:' ):
+			content = re.sub('category:', '', content)
+
+	    		content = re.sub('[^a-zA-Z0-9 ]', '', content)
+			self.article.token['Category'].append( content)
+		
 		elif content.startswith('==') and content.endswith('=='):
 			content = (re.sub("=+", '', content )).strip()
 			if content in ext_headers :
-				deal()
-
+				self.deal(content)
 			else :
-				self.article.headings.append(re.sub('[=]','', content).strip())
+				self.ext_tag = 0
+				self.article.headings.append(re.sub("=+", '', content).strip())
 
-		elif self.CurrentData == "text":		
-			self.article.content += content
+		elif self.CurrentData == "text":	
+			if self.ext_tag != 0 :
+				self.ext_add( content)
+			else:
+				self.article.content += content
 
 		#Get headings by comparing with pattern
-	
 			
 	def endElement(self, tag):
-		
 		if self.CurrentData == "text":
-			self.extract_ref(self.article.content)
-			self.get_tokens(self.article.content, self.article.title)
-
-
+			self.filter_content(self.article.content)
+#			do not know use of this neeche
+#			self.get_tokens(self.article.content, self.article.title)
+			print self.article.token['Category']
+		
 		if tag == "page":
 			all_articles.append(Article)
 		
@@ -120,7 +147,8 @@ class WikipediaHandler(xml.sax.ContentHandler):
 
 if ( __name__ == "__main__"):
    
-   filename = "wiki-search-small.xml"
+   #filename = "wiki-search-small.xml"
+   filename = "../chota.xml"
    # create an XMLReader
    parser = xml.sax.make_parser()
    # turn off namepsaces
