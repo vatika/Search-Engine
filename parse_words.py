@@ -1,12 +1,18 @@
+#!/usr/bin/python
+
 import xml.sax
+from xml.sax.handler import ContentHandler
+import cgi
 
 all_article = []
 
 class WikipediaHandler(xml.sax.ContentHandler):
 	def __init__(self):
 		self.title = ""
+		self.CurrentData = ""
+	
 	def startElement(self, tag, attributes):
-    	self.CurrentData = tag
+		self.CurrentData = tag
     	if tag == "page":
     		article = Article()
 
@@ -15,10 +21,10 @@ class WikipediaHandler(xml.sax.ContentHandler):
 			self.title = content
  
 	def endElement(self, tag):
-		if self.CurrentData = "title":
+		if self.CurrentData == "title":
 			article.title = self.title
+			print "Title: ", article.title
 
-			
 class Article:
 	def __init__(self):
 		title = []
