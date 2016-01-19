@@ -1,6 +1,36 @@
 import xml.sax
-class WikipediaHandler()
-  
+
+all_article = []
+
+class WikipediaHandler(xml.sax.ContentHandler):
+	def __init__(self):
+		self.title = ""
+	def startElement(self, tag, attributes):
+    	self.CurrentData = tag
+    	if tag == "page":
+    		article = Article()
+
+	def characters(self, content):
+		if self.CurrentData == "title":
+			self.title = content
+ 
+	def endElement(self, tag):
+		if self.CurrentData = "title":
+			article.title = self.title
+
+			
+class Article:
+	def __init__(self):
+		title = []
+		id = ""
+		parent_id = ""
+		alternate_links = [] #Alternate representations of title 
+		content = ""
+		tokens = []
+		citations = []
+		external_links = []
+
+
 if ( __name__ == "__main__"):
    
    filename = "wiki-search-small.xml"
