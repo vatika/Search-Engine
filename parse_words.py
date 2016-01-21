@@ -32,7 +32,6 @@ def processTitle(title):
 	"""
 	return stem_tokens(tokenize(data.lower()), stemmer)    
 
-def processText(text):
 
 class WikipediaHandler(xml.sax.ContentHandler):
 	def __init__(self):
@@ -50,24 +49,29 @@ class WikipediaHandler(xml.sax.ContentHandler):
 		return " ".join([i for i in self.article.headings])
 
 	def filter_content( self, content):
-	    content = re.sub( '\n', ' ', content)
-	    ref = re.findall( "<ref.*?</ref>", content)
-	    self.article.token['References'] = []
-	    for i in ref:
-        	i = re.sub("<ref.*?>", '', i)
-        	i = re.sub( "</ref>", '', i)
-	        self.article.token['References'].append(i)
-	    content = re.sub("<ref.*?</ref>", ' ', content)
-	    content = re.sub("i.e", '', content)
-	    content = re.sub("\.", ' ', content)
-	    content = re.sub('[^a-zA-Z0-9 ]', '', content)
-	    content = re.sub(' +', ' ', content)
-	    content = content.split()
-	    #words ki numbering yaad rakhna oreder needed :P
+		"""
+		Filter content by removing all references and external links
+		"""
+		content = re.sub( '\n', ' ', content)
+		ref = re.findall( "<ref.*?</ref>", content)
+		self.article.token['References'] = []
+		for i in ref:
+			i = re.sub("<ref.*?>", '', i)
+			i = re.sub( "</ref>", '', i)
+			self.article.token['References'].append(i)
+		content = re.sub("<ref.*?</ref>", ' ', content)
+		content = re.sub("i.e", '', content)
+		content = re.sub("\.", ' ', content)
+		content = re.sub('[^a-zA-Z0-9 ]', '', content)
+		content = re.sub(' +', ' ', content)
+		content = content.split()
+		#words ki numbering yaad rakhna oreder needed :P
 
-	    #now content is list of words in the body
-	    #removed references , links, duplicates, etc
-	    self.article.content = content
+		#now content is list of words in the body
+		#removed references , links, duplicates, etc
+		self.article.content = content
+
+
 
 	def startElement(self, tag, attributes):
 		"""
@@ -82,7 +86,7 @@ class WikipediaHandler(xml.sax.ContentHandler):
 			self.article.headings = []
 			self.article.token = {}
 			self.article.token['Category'] = []
-
+			self.article.external_links = []
 	def deal(self, content):
 		if content == "further reading" :
 			self.ext_tag = 3
@@ -90,6 +94,17 @@ class WikipediaHandler(xml.sax.ContentHandler):
 			self.ext_tag = 4
 		elif content == "references" :
 			self.ext_tag = 1
+		elif content == "external links":
+			lines = data.split("==external links==")
+			if len(lines)>1:
+				lines=lines[1].split("\n")
+				for i in xrange(len(lines)):
+					if '* [' in lines[i] or '*[' in lines[i]:
+						word=""
+						temp=lines[i].split(' ')
+						word=[key for key in temp if 'http' not in temp]
+						word=' '.join(word).encode('utf-8')
+						self.article.external_links.append(word)
 		else :
 			self.ext_tag = 2
 	def ext_add( self, content ):
@@ -107,21 +122,20 @@ class WikipediaHandler(xml.sax.ContentHandler):
 		
 		elif content.startswith('[[category:' ):
 			content = re.sub('category:', '', content)
-
-	    		content = re.sub('[^a-zA-Z0-9 ]', '', content)
+			content = re.sub('[^a-zA-Z0-9 ]', '', content)
 			self.article.token['Category'].append( content)
 		
 		elif content.startswith('==') and content.endswith('=='):
 			content = (re.sub("=+", '', content )).strip()
 			if content in ext_headers :
 				self.deal(content)
-			else :
+			else:
 				self.ext_tag = 0
 				self.article.headings.append(re.sub("=+", '', content).strip())
 
 		elif self.CurrentData == "text":	
 			if self.ext_tag != 0 :
-				self.ext_add( content)
+				self.ext_add(content)
 			else:
 				self.article.content += content
 
@@ -133,17 +147,15 @@ class WikipediaHandler(xml.sax.ContentHandler):
 #			do not know use of this neeche
 #			self.get_tokens(self.article.content, self.article.title)
 			print self.article.token['Category']
-		
 		if tag == "page":
 			all_articles.append(Article)
 		
 		self.CurrentData = ""
 
+main():
 
-if ( __name__ == "__main__"):
-   
    #filename = "wiki-search-small.xml"
-   filename = "../chota.xml"
+   filename = "./chota.xml"
    # create an XMLReader
    parser = xml.sax.make_parser()
    # turn off namepsaces
@@ -154,3 +166,11 @@ if ( __name__ == "__main__"):
    parser.setContentHandler( Handler )
    
    parser.parse(filename)
+
+
+if ( __name__ == "__main__"):
+   
+	start = timeit.default_timer()
+	main()
+	stop = timeit.default_timer()
+	print stop - start
