@@ -4,11 +4,11 @@ import xml.sax
 from xml.sax.handler import ContentHandler
 import cgi
 import timeit
+import re
+import json
 
 from textProcess import stem_tokens, remove_stop_words, tokenize
-
-import re
-
+fp = open("tokens.json","a")
 all_articles = []
 
 ext_headers = ['references','external links', 'further reading', 'see also']
@@ -38,14 +38,25 @@ class WikipediaHandler(xml.sax.ContentHandler):
 	
 	def get_tokens(self, content, title):
 		self.article.token['title'] = tokenize(title)
-		# self.article.token['text'] = tokenize(get_body(content))
-		self.article.token['headings'] = tokenize(self.get_headings(content))
-		self.article.token['References'] = tokenize(get_references(content))
-	
-	def get_headings(self, text):
-		return " ".join([i for i in self.article.headings])
+		self.article.token['headings'] = tokenize(self.get_headings())
+		self.article.token['References'] = tokenize(self.get_references(content))
+		self.article.token['text'] = self.get_body(self.article.content)
 
-	def get_references( self, content):
+	def get_headings(self):
+		if self.article.headings:
+			return " ".join([i for i in self.article.headings])
+		else: return []
+
+	def get_body(self, content):
+		content = re.sub("<ref.*?</ref>", ' ', content)
+		content = re.sub("i.e", '', content)
+		content = re.sub("\.", ' ', content)
+		content = re.sub('[^a-zA-Z0-9 ]', '', content)
+		content = re.sub(' +', ' ', content)
+
+		return remove_stop_words(stem_tokens(tokenize(content.lower())))    
+
+	def get_references(self, content):
 		"""
 		Filter content by removing all references and external links
 		"""
@@ -56,19 +67,6 @@ class WikipediaHandler(xml.sax.ContentHandler):
 			i = re.sub("<ref.*?>", '', i)
 			i = re.sub( "</ref>", '', i)
 			self.article.token['References'].append(i)
-		content = re.sub("<ref.*?</ref>", ' ', content)
-		content = re.sub("i.e", '', content)
-		content = re.sub("\.", ' ', content)
-		content = re.sub('[^a-zA-Z0-9 ]', '', content)
-		content = re.sub(' +', ' ', content)
-		content = content.split()
-		#words ki numbering yaad rakhna oreder needed :P
-
-		#now content is list of words in the body
-		#removed references , links, duplicates, etc
-		self.article.content = content
-
-
 
 	def startElement(self, tag, attributes):
 		"""
@@ -97,15 +95,15 @@ class WikipediaHandler(xml.sax.ContentHandler):
 		lines=content.split("\n")
 		for i in xrange(len(lines)):
 			if '* [' in lines[i] or '*[' in lines[i]:
-				word=""
-				temp=lines[i].split(' ')
+				word = ""
+				temp = lines[i].split(' ')
 				word=[key for key in temp if 'http' not in temp]
 				try:
 					word=' '.join(word).encode('utf-8')
 					self.article.token['external_links'].extend(remove_stop_words(stem_tokens(tokenize(word))))
 				except:
 					pass
-					
+
 	def characters(self, content):
 		"""
 		Get content of every header
@@ -132,17 +130,37 @@ class WikipediaHandler(xml.sax.ContentHandler):
 		elif 'http' in content and self.article_no > 1:
 			self.extract_external_links(content)
 
+		elif 'infobox' in content and self.article_no > 1:
+			self.extract_external_links(content)
+
 		elif self.CurrentData == "text":	
 			self.article.content += content
+			lines = content.split('\n')
+			for i in xrange(len(lines)):
+				if '{{infobox' in lines[i]:
+					flag=0
+					temp=lines[i].split('{{infobox')[1:]
+					info.extend(temp)
+					while True:
+						if '{{' in lines[i]:
+							count=lines[i].count('{{')
+							flag+=count
+						if '}}' in lines[i]:
+							count=lines[i].count('}}')
+							flag-=count
+						if flag<=0:
+							break
+						i+=1
+						self.article.token['infobox'].append(lines[i])
 
-		#Get headings by comparing with pattern
+			#Get headings by comparing with pattern
 			
 	def endElement(self, tag):
 		if self.CurrentData == "text":
-
 #			do not know use of this neeche
 			self.get_tokens(self.article.content, self.article.title)
-			print self.article.token['Category']
+			json.dump(self.article.token, open("tokens.json", 'a'))
+			fp.write('\n')
 		if tag == "page":
 			all_articles.append(Article)
 		
