@@ -3,16 +3,13 @@
 import xml.sax
 from xml.sax.handler import ContentHandler
 import cgi
-import re
-
-from nltk.stem.porter import PorterStemmer
-from nltk.corpus import stopwords
+import timeit
 
 from textProcess import stem_tokens, remove_stop_words, tokenize
 
+import re
+
 all_articles = []
-stemmer = PorterStemmer()
-stop = stopwords.words('english')
 
 ext_headers = ['references','external links', 'further reading', 'see also']
 
@@ -43,12 +40,12 @@ class WikipediaHandler(xml.sax.ContentHandler):
 		self.article.token['title'] = tokenize(title)
 		# self.article.token['text'] = tokenize(get_body(content))
 		self.article.token['headings'] = tokenize(self.get_headings(content))
-		# self.article.token['References'] = tokenize(get_references(content))
+		self.article.token['References'] = tokenize(get_references(content))
 	
 	def get_headings(self, text):
 		return " ".join([i for i in self.article.headings])
 
-	def filter_content( self, content):
+	def get_references( self, content):
 		"""
 		Filter content by removing all references and external links
 		"""
@@ -86,7 +83,8 @@ class WikipediaHandler(xml.sax.ContentHandler):
 			self.article.headings = []
 			self.article.token = {}
 			self.article.token['Category'] = []
-			self.article.external_links = []
+			self.article.token['external_links'] = []
+
 	def deal(self, content):
 		if content == "further reading" :
 			self.ext_tag = 3
@@ -94,22 +92,20 @@ class WikipediaHandler(xml.sax.ContentHandler):
 			self.ext_tag = 4
 		elif content == "references" :
 			self.ext_tag = 1
-		elif content == "external links":
-			lines = data.split("==external links==")
-			if len(lines)>1:
-				lines=lines[1].split("\n")
-				for i in xrange(len(lines)):
-					if '* [' in lines[i] or '*[' in lines[i]:
-						word=""
-						temp=lines[i].split(' ')
-						word=[key for key in temp if 'http' not in temp]
-						word=' '.join(word).encode('utf-8')
-						self.article.external_links.append(word)
-		else :
-			self.ext_tag = 2
-	def ext_add( self, content ):
-		pass	
-
+	
+	def extract_external_links(self, content):
+		lines=content.split("\n")
+		for i in xrange(len(lines)):
+			if '* [' in lines[i] or '*[' in lines[i]:
+				word=""
+				temp=lines[i].split(' ')
+				word=[key for key in temp if 'http' not in temp]
+				try:
+					word=' '.join(word).encode('utf-8')
+					self.article.token['external_links'].extend(remove_stop_words(stem_tokens(tokenize(word))))
+				except:
+					pass
+					
 	def characters(self, content):
 		"""
 		Get content of every header
@@ -133,26 +129,26 @@ class WikipediaHandler(xml.sax.ContentHandler):
 				self.ext_tag = 0
 				self.article.headings.append(re.sub("=+", '', content).strip())
 
+		elif 'http' in content and self.article_no > 1:
+			self.extract_external_links(content)
+
 		elif self.CurrentData == "text":	
-			if self.ext_tag != 0 :
-				self.ext_add(content)
-			else:
-				self.article.content += content
+			self.article.content += content
 
 		#Get headings by comparing with pattern
 			
 	def endElement(self, tag):
 		if self.CurrentData == "text":
-			self.filter_content(self.article.content)
+
 #			do not know use of this neeche
-#			self.get_tokens(self.article.content, self.article.title)
+			self.get_tokens(self.article.content, self.article.title)
 			print self.article.token['Category']
 		if tag == "page":
 			all_articles.append(Article)
 		
 		self.CurrentData = ""
 
-main():
+def main():
 
    #filename = "wiki-search-small.xml"
    filename = "./chota.xml"
