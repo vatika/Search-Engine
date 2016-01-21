@@ -8,10 +8,14 @@ import re
 import json
 
 from textProcess import stem_tokens, remove_stop_words, tokenize
+from my_indexer import create_index
+
 fp = open("tokens.json","a")
 all_articles = []
 
 ext_headers = ['references','external links', 'further reading', 'see also']
+
+global index
 
 class Article:
 	def __init__(self):
@@ -82,14 +86,6 @@ class WikipediaHandler(xml.sax.ContentHandler):
 			self.article.token = {}
 			self.article.token['Category'] = []
 			self.article.token['external_links'] = []
-
-	def deal(self, content):
-		if content == "further reading" :
-			self.ext_tag = 3
-		elif content == "see also" :
-			self.ext_tag = 4
-		elif content == "references" :
-			self.ext_tag = 1
 	
 	def extract_external_links(self, content):
 		lines=content.split("\n")
@@ -121,11 +117,8 @@ class WikipediaHandler(xml.sax.ContentHandler):
 		
 		elif content.startswith('==') and content.endswith('=='):
 			content = (re.sub("=+", '', content )).strip()
-			if content in ext_headers :
-				self.deal(content)
-			else:
-				self.ext_tag = 0
-				self.article.headings.append(re.sub("=+", '', content).strip())
+			self.ext_tag = 0
+			self.article.headings.append(re.sub("=+", '', content).strip())
 
 		elif 'http' in content and self.article_no > 1:
 			self.extract_external_links(content)
@@ -152,18 +145,15 @@ class WikipediaHandler(xml.sax.ContentHandler):
 							break
 						i+=1
 						self.article.token['infobox'].append(lines[i])
-
 			#Get headings by comparing with pattern
 			
 	def endElement(self, tag):
 		if self.CurrentData == "text":
-#			do not know use of this neeche
 			self.get_tokens(self.article.content, self.article.title)
-			json.dump(self.article.token, open("tokens.json", 'a'))
-			fp.write('\n')
+			json.dump(self.article.token, open("tokens.json", 'w'))
+			create_index()
 		if tag == "page":
-			all_articles.append(Article)
-		
+			all_articles.append(Article)		
 		self.CurrentData = ""
 
 def main():
