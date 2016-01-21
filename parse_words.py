@@ -8,6 +8,8 @@ import re
 from nltk.stem.porter import PorterStemmer
 from nltk.corpus import stopwords
 
+from textProcess import stem_tokens, remove_stop_words, tokenize
+
 all_articles = []
 stemmer = PorterStemmer()
 stop = stopwords.words('english')
@@ -24,20 +26,13 @@ class Article:
 		external_links = []
 		id = 0
 
-def stem_tokens(tokens, stemmer):
-    stemmed = []
-    for item in tokens:
-    	item = item.encode("utf-8")
-    	word = stemmer.stem(item)
-    	if word not in stop:
-        	stemmed.append(stemmer.stem(item))
-    return stemmed
+def processTitle(title):
+	"""
+	Title is converted to lower case, tokenized and stemmed
+	"""
+	return stem_tokens(tokenize(data.lower()), stemmer)    
 
-def tokenize(text):
-	token = re.sub('[^a-zA-Z0-9 \.]', ' ', text)
-	token = token.split()
-	stems = stem_tokens(token, stemmer)
-	return stems
+def processText(text):
 
 class WikipediaHandler(xml.sax.ContentHandler):
 	def __init__(self):
